@@ -30,7 +30,6 @@ jobs:
             celinekl/student-app:latest
   test:
     name: Test
-    needs: [ scan ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repository

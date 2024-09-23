@@ -47,16 +47,24 @@ def get_comments_page(quote_id):
 # Post a new quote
 @app.route("/quotes", methods=["POST"])
 def post_quote():
+    text = request.form['text']
+    attribution = request.form['attribution']
+    
     with db:
-        db.execute(f"""insert into quotes(text,attribution) values("{request.form['text']}","{request.form['attribution']}")""")
+        db.execute("""INSERT INTO quotes(text, attribution) VALUES (?, ?)""", (text, attribution))
+        
     return redirect("/#bottom")
 
 
 # Post a new comment
 @app.route("/quotes/<int:quote_id>/comments", methods=["POST"])
 def post_comment(quote_id):
+    text = request.form['text']
+    user_id = request.user_id
+    
     with db:
-        db.execute(f"""insert into comments(text,quote_id,user_id) values("{request.form['text']}",{quote_id},{request.user_id})""")
+        db.execute("""INSERT INTO comments(text, quote_id, user_id) VALUES (?, ?, ?)""", (text, quote_id, user_id))
+        
     return redirect(f"/quotes/{quote_id}#bottom")
 
 
@@ -66,17 +74,20 @@ def signin():
     username = request.form["username"].lower()
     password = request.form["password"]
 
-    user = db.execute(f"select id, password from users where name='{username}'").fetchone()
-    if user: # user exists
+    # Gebruik parameterized query voor het selecteren van de gebruiker
+    user = db.execute("SELECT id, password FROM users WHERE name = ?", (username,)).fetchone()
+    
+    if user:  # user exists
         if password != user['password']:
             # wrong! redirect to main page with an error message
-            return redirect('/?error='+urllib.parse.quote("Invalid password!"))
+            return redirect('/?error=' + urllib.parse.quote("Invalid password!"))
         user_id = user['id']
-    else: # new sign up
+    else:  # new sign up
         with db:
-            cursor = db.execute(f"insert into users(name,password) values('{username}', '{password}')")
+            # Gebruik parameterized query voor het invoegen van de nieuwe gebruiker
+            cursor = db.execute("INSERT INTO users(name, password) VALUES (?, ?)", (username, password))
             user_id = cursor.lastrowid
-    
+
     response = make_response(redirect('/'))
     response.set_cookie('user_id', str(user_id))
     return response

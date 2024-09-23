@@ -9,7 +9,7 @@ app.static_folder = '.'
 
 # Open the database. Have queries return dicts instead of tuples.
 # The use of `check_same_thread` can cause unexpected results in rare cases. We'll
-# get rid of this when we learn about SQLAlchemy..
+# get rid of this when we learn about SQLAlchemy.
 db = sqlite3.connect("db.sqlite3", check_same_thread=False)
 db.row_factory = sqlite3.Row
 
@@ -32,9 +32,12 @@ def check_authentication():
 # The main page
 @app.route("/")
 def index():
-    quotes = db.execute("select id, text, attribution from quotes order by id").fetchall()
-    return templates.main_page(quotes, request.user_id, request.args.get('error'))
+    quotes = db.execute("SELECT id, text, attribution FROM quotes ORDER BY id").fetchall()
+    error_message = escape(request.args.get('error', ''))
+    
+    escaped_quotes = [{'id': q['id'], 'text': escape(q['text']), 'attribution': escape(q['attribution'])} for q in quotes]  # Escape quotes
 
+    return templates.main_page(escaped_quotes, request.user_id, error_message)
 
 # The quote comments page
 @app.route("/quotes/<int:quote_id>")
@@ -47,24 +50,16 @@ def get_comments_page(quote_id):
 # Post a new quote
 @app.route("/quotes", methods=["POST"])
 def post_quote():
-    text = request.form['text']
-    attribution = request.form['attribution']
-    
     with db:
-        db.execute("""INSERT INTO quotes(text, attribution) VALUES (?, ?)""", (text, attribution))
-        
+        db.execute("INSERT INTO quotes(text, attribution) VALUES (%s, %s)", (request.form['text'], request.form['attribution']))
     return redirect("/#bottom")
 
 
 # Post a new comment
 @app.route("/quotes/<int:quote_id>/comments", methods=["POST"])
 def post_comment(quote_id):
-    text = request.form['text']
-    user_id = request.user_id
-    
     with db:
-        db.execute("""INSERT INTO comments(text, quote_id, user_id) VALUES (?, ?, ?)""", (text, quote_id, user_id))
-        
+        db.execute("""INSERT INTO quotes(text, attribution) VALUES (%s, %s)""", (request.form['text'], request.form['attribution']))
     return redirect(f"/quotes/{quote_id}#bottom")
 
 
@@ -75,7 +70,7 @@ def signin():
     password = request.form["password"]
 
     # Gebruik parameterized query voor het selecteren van de gebruiker
-    user = db.execute("SELECT id, password FROM users WHERE name = ?", (username,)).fetchone()
+    user = db.execute("SELECT id, password FROM users WHERE name = %s", (username,)).fetchone()
     
     if user:  # user exists
         if password != user['password']:
@@ -85,11 +80,11 @@ def signin():
     else:  # new sign up
         with db:
             # Gebruik parameterized query voor het invoegen van de nieuwe gebruiker
-            cursor = db.execute("INSERT INTO users(name, password) VALUES (?, ?)", (username, password))
+            cursor = db.execute("INSERT INTO users(name, password) VALUES (%s, %s)", (username, password))
             user_id = cursor.lastrowid
 
     response = make_response(redirect('/'))
-    response.set_cookie('user_id', str(user_id))
+    response.set_cookie('user_id', str(user_id), httponly=True, secure=True, samesite='Lax')
     return response
 
 

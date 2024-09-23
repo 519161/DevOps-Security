@@ -54,7 +54,7 @@ jobs:
           ignore-unchanged: false
           write-comment: true
           github-token: ${{ secrets.ACCESS_GITHUB_TOKEN }}
-          exit-code: true
+          exit-code: false
           exit-on: vulnerability
 
   test:

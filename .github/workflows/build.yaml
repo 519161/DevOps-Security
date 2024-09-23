@@ -44,11 +44,11 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
       - name: Analyze image with Docker Scout
-        uses: docker/scout-action@v0.18.1
+        uses: docker/scout-action@v1.5.0
         with:
           command: cves
           image: celinekl/student-app:latest
-          only-fixed: true
+          #only-fixed: true
           only-severities: critical,high
           ignore-base: false  
           ignore-unchanged: false

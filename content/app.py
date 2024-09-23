@@ -32,12 +32,9 @@ def check_authentication():
 # The main page
 @app.route("/")
 def index():
-    quotes = db.execute("SELECT id, text, attribution FROM quotes ORDER BY id").fetchall()
-    error_message = escape(request.args.get('error', ''))
-    
-    escaped_quotes = [{'id': q['id'], 'text': escape(q['text']), 'attribution': escape(q['attribution'])} for q in quotes]  # Escape quotes
+    quotes = db.execute("select id, text, attribution from quotes order by id").fetchall()
+    return templates.main_page(quotes, request.user_id, request.args.get('error'))
 
-    return templates.main_page(escaped_quotes, request.user_id, error_message)
 
 # The quote comments page
 @app.route("/quotes/<int:quote_id>")
@@ -51,7 +48,7 @@ def get_comments_page(quote_id):
 @app.route("/quotes", methods=["POST"])
 def post_quote():
     with db:
-        db.execute("INSERT INTO quotes(text, attribution) VALUES (%s, %s)", (request.form['text'], request.form['attribution']))
+        db.execute(f"""insert into quotes(text,attribution) values("{request.form['text']}","{request.form['attribution']}")""")
     return redirect("/#bottom")
 
 
@@ -59,7 +56,7 @@ def post_quote():
 @app.route("/quotes/<int:quote_id>/comments", methods=["POST"])
 def post_comment(quote_id):
     with db:
-        db.execute("""INSERT INTO quotes(text, attribution) VALUES (%s, %s)""", (request.form['text'], request.form['attribution']))
+        db.execute(f"""insert into comments(text,quote_id,user_id) values("{request.form['text']}",{quote_id},{request.user_id})""")
     return redirect(f"/quotes/{quote_id}#bottom")
 
 
@@ -69,22 +66,19 @@ def signin():
     username = request.form["username"].lower()
     password = request.form["password"]
 
-    # Gebruik parameterized query voor het selecteren van de gebruiker
-    user = db.execute("SELECT id, password FROM users WHERE name = %s", (username,)).fetchone()
-    
-    if user:  # user exists
+    user = db.execute(f"select id, password from users where name='{username}'").fetchone()
+    if user: # user exists
         if password != user['password']:
             # wrong! redirect to main page with an error message
-            return redirect('/?error=' + urllib.parse.quote("Invalid password!"))
+            return redirect('/?error='+urllib.parse.quote("Invalid password!"))
         user_id = user['id']
-    else:  # new sign up
+    else: # new sign up
         with db:
-            # Gebruik parameterized query voor het invoegen van de nieuwe gebruiker
-            cursor = db.execute("INSERT INTO users(name, password) VALUES (%s, %s)", (username, password))
+            cursor = db.execute(f"insert into users(name,password) values('{username}', '{password}')")
             user_id = cursor.lastrowid
-
+    
     response = make_response(redirect('/'))
-    response.set_cookie('user_id', str(user_id), httponly=True, secure=True, samesite='Lax')
+    response.set_cookie('user_id', str(user_id))
     return response
 
 
